@@ -1,8 +1,8 @@
 # 📚 Project Documentation
-## AI QUERY API — Technical Assignment
+## Offshorly LLM API Playground — Technical Assignment
 
 > **Assignment:** AI/Full-Stack Developer Internship — Offshorly
-> **Stack:** Python · FastAPI · Anthropic Claude · Pydantic · Uvicorn
+> **Stack:** Python · FastAPI · Google Gemini · Pydantic · Uvicorn
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## 1.1 Purpose
 
-The **AI QUERY API** is a backend web service designed to demonstrate practical Artificial Intelligence integration within a clean, production-style REST API. It exposes two HTTP endpoints:
+The **Offshorly LLM API Playground** is a backend web service designed to demonstrate practical Artificial Intelligence integration within a clean, production-style REST API. It exposes two HTTP endpoints:
 
 - **`GET /health`** — A diagnostic endpoint that confirms the application is running and that all required environment configuration is in place.
 - **`POST /query`** — A general-purpose AI endpoint that accepts a natural language query from the user, processes it through a prompt engineering layer, sends it to a Large Language Model (LLM) API, and returns the model's response as a structured JSON object.
@@ -51,7 +51,7 @@ The following AI/LLM concepts are demonstrated through the `POST /query` endpoin
 
 | Concept | What It Shows |
 |---|---|
-| **LLM API Integration** | Making authenticated requests to an external AI provider (Anthropic Claude), handling API responses, and surfacing errors gracefully. |
+| **LLM API Integration** | Making authenticated requests to Google Gemini, handling API responses, and surfacing errors gracefully. |
 | **Prompt Engineering** | Writing structured system prompts that guide model behaviour — setting tone, output format, constraints, and task framing. |
 | **Zero-Shot Classification** | Instructing the model to assign a label (e.g., Positive/Negative/Neutral) to text it has never seen before, with no training examples provided. |
 | **Long Context Handling** | Passing large bodies of text (articles, documents) into the model's context window and requesting a structured summary or analysis. |
@@ -106,7 +106,8 @@ The application is composed of five distinct layers, each with a single, clear r
                             ▼
 ┌────────────────────────────────────────────────────────────┐
 │                  LLM PROVIDER LAYER                         │
-│           Anthropic Claude (or OpenAI / Gemini / Groq)     │
+│                    Google Gemini API                        │
+│                  (gemini-2.0-flash model)                   │
 │   • Processes the prompt                                    │
 │   • Returns a text completion                              │
 └───────────────────────────┬────────────────────────────────┘
@@ -139,7 +140,7 @@ This layer is the intelligence of the application. It inspects the user's query 
 
 ### LLM Provider Layer
 
-The external LLM API (Anthropic Claude by default). The application treats this as a black box — it sends a prompt and receives a text completion. The provider can be swapped by modifying only `services/llm_service.py` and updating the API key in `.env`.
+The external LLM API — **Google Gemini** (`gemini-2.0-flash`). The application treats this as a black box — it sends a prompt and receives a text completion. The provider can be swapped by modifying only `services/llm_service.py` and updating the API key in `.env`.
 
 ### Environment Configuration (`config.py`, `.env`)
 
@@ -166,18 +167,15 @@ Step 3 ── The validated query string is passed to the prompt engineering lay
 
 Step 4 ── The (system_prompt, user_message) tuple is passed to the service layer
            (services/llm_service.py).
-           The service builds the Anthropic API request payload:
-           {
-             "model": "claude-3-5-haiku-20241022",
-             "max_tokens": 1024,
-             "system": <system_prompt>,
-             "messages": [{"role": "user", "content": <user_message>}]
-           }
-           The service authenticates using ANTHROPIC_API_KEY from config.py.
-           The service sends the request to https://api.anthropic.com/v1/messages.
+           The service initialises a google-genai client using GEMINI_API_KEY from config.py.
+           It calls the Gemini API with:
+           - model: "gemini-2.0-flash"
+           - system_instruction: <system_prompt>
+           - contents: <user_message>
+           The service sends the request to the Google Generative AI endpoint.
 
-Step 5 ── Anthropic Claude processes the prompt and returns a JSON response.
-           The service extracts the text from response.content[0].text.
+Step 5 ── Google Gemini processes the prompt and returns a response object.
+           The service extracts the text from response.text.
 
 Step 6 ── The extracted text is returned up the call stack to the route handler.
            The route handler wraps it: {"message": "<llm response text>"}
@@ -197,8 +195,8 @@ Step 2 ── FastAPI (routes/health.py) receives the request.
 
 Step 3 ── The handler imports the Settings object from config.py.
            It checks each required environment variable:
-           - Is ANTHROPIC_API_KEY set? → "set" or "missing"
-           - Is APP_ENV set?            → "set" or "missing"
+           - Is GEMINI_API_KEY set? → "set" or "missing"
+           - Is APP_ENV set?         → "set" or "missing"
 
 Step 4 ── If all variables are present → overall status is "ok"
            If any variable is missing  → overall status is "degraded"
@@ -208,7 +206,7 @@ Step 5 ── Response is returned:
              "status": "ok",
              "app_env": "development",
              "checks": {
-               "ANTHROPIC_API_KEY": "set",
+               "GEMINI_API_KEY": "set",
                "APP_ENV": "set"
              }
            }
@@ -499,7 +497,7 @@ from fastapi import FastAPI
 from routes.health import router as health_router
 from routes.query import router as query_router
 
-app = FastAPI(title="AI QUERY API", version="1.0.0")
+app = FastAPI(title="AI Query API", version="1.0.0")
 app.include_router(health_router)
 app.include_router(query_router)
 ```
@@ -520,14 +518,14 @@ app.include_router(query_router)
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    ANTHROPIC_API_KEY: str
+    GEMINI_API_KEY: str
     APP_ENV: str = "development"
 
     class Config:
         env_file = ".env"
 
 settings = Settings()
-REQUIRED_VARS = ["ANTHROPIC_API_KEY", "APP_ENV"]
+REQUIRED_VARS = ["GEMINI_API_KEY", "APP_ENV"]
 ```
 
 ---
@@ -542,9 +540,8 @@ fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
-anthropic>=0.25.0
+google-genai>=1.0.0
 python-dotenv>=1.0.0
-httpx>=0.27.0
 ```
 
 ---
@@ -555,8 +552,8 @@ httpx>=0.27.0
 
 **Contents:**
 ```env
-# Anthropic Claude API key — get one at https://console.anthropic.com
-ANTHROPIC_API_KEY=your-anthropic-api-key-here
+# Google Gemini API key — get one at https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your-gemini-api-key-here
 
 # Application environment
 APP_ENV=development
@@ -628,27 +625,29 @@ def health_check():
 **Responsibility:** Owns all communication with the LLM provider API. This is the only file that knows which LLM provider is being used and how to talk to it.
 
 **What it contains:**
-- An `anthropic.Anthropic` client instantiation using the key from `config.py`
+- A `google.genai.Client` instantiation using the key from `config.py`
 - A `call_llm(system_prompt: str, user_message: str) -> str` function
-- Model name constant (e.g., `MODEL = "claude-3-5-haiku-20241022"`)
+- Model name constant (`MODEL = "gemini-2.0-flash"`)
 - Error handling for API failures (connection errors, auth errors, rate limits)
 
 **Example:**
 ```python
-import anthropic
+from google import genai
+from google.genai import types
 from config import settings
 
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-MODEL = "claude-3-5-haiku-20241022"
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
+MODEL = "gemini-2.0-flash"
 
 def call_llm(system_prompt: str, user_message: str) -> str:
-    message = client.messages.create(
+    response = client.models.generate_content(
         model=MODEL,
-        max_tokens=1024,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}]
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+        ),
+        contents=user_message,
     )
-    return message.content[0].text
+    return response.text
 ```
 
 ---
@@ -729,7 +728,7 @@ main.py
   └── imports → routes/query.py     → schemas/query.py
                                     → prompts/task_router.py
                                     → services/llm_service.py → config.py
-                                                              → [Anthropic API]
+                                                              → [Google Gemini API]
 ```
 
 All configuration flows from `config.py` outward. No layer directly reads environment variables — they always go through `config.py`.
@@ -743,9 +742,8 @@ fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
-anthropic>=0.25.0
+google-genai>=1.0.0
 python-dotenv>=1.0.0
-httpx>=0.27.0
 ```
 
 ## 4.5 Suggested `.gitignore`

@@ -1,4 +1,4 @@
-# 🤖 AI QUERY API
+# 🤖 Offshorly LLM API Playground
 
 > A FastAPI backend that demonstrates practical LLM capabilities through a clean, extensible REST API — built for the Offshorly AI/Full-Stack Developer Internship technical assignment.
 
@@ -24,7 +24,7 @@
 
 ## 📖 Description
 
-**AI Query API** is a lightweight FastAPI application that exposes two REST endpoints — `GET /health` and `POST /query` — to demonstrate real-world LLM integration patterns. It routes natural language user queries through a prompt engineering layer before sending them to an LLM provider (Anthropic Claude by default, with easy swapping to Gemini, Groq, or OpenAI).
+**Offshorly LLM API Playground** is a lightweight FastAPI application that exposes two REST endpoints — `GET /health` and `POST /query` — to demonstrate real-world LLM integration patterns. It routes natural language user queries through a prompt engineering layer before sending them to **Google Gemini**, Google's multimodal large language model API.
 
 The application is designed to be a clean, readable, and extensible starting point for AI-powered backend development, showcasing several foundational LLM techniques within a single unified API.
 
@@ -35,7 +35,7 @@ The application is designed to be a clean, readable, and extensible starting poi
 | Feature | Description |
 |---|---|
 | 🏥 **Health Check** | Validates app status and required environment variable presence |
-| 🔗 **LLM Integration** | Connects to Anthropic Claude (easily switchable to OpenAI, Gemini, or Groq) |
+| 🔗 **LLM Integration** | Connects to Google Gemini (`gemini-2.0-flash`) via the `google-genai` SDK |
 | 🧠 **Prompt Engineering** | Structured system prompts with task-specific instructions |
 | 🏷️ **Zero-Shot Classification** | Categorizes text without any training examples |
 | 📄 **Long Context Handling** | Processes and summarizes large text inputs |
@@ -51,10 +51,10 @@ The application is designed to be a clean, readable, and extensible starting poi
 - **Runtime**: Python 3.11+
 - **Framework**: [FastAPI](https://fastapi.tiangolo.com/)
 - **ASGI Server**: [Uvicorn](https://www.uvicorn.org/)
-- **LLM Provider**: [Anthropic Claude](https://www.anthropic.com/) (`claude-3-5-haiku-20241022`)
+- **LLM Provider**: [Google Gemini](https://deepmind.google/technologies/gemini/) (`gemini-2.0-flash`)
+- **Gemini SDK**: [google-genai](https://pypi.org/project/google-genai/)
 - **Validation**: [Pydantic v2](https://docs.pydantic.dev/)
 - **Configuration**: [python-dotenv](https://pypi.org/project/python-dotenv/)
-- **HTTP Client**: [httpx](https://www.python-httpx.org/) (async-ready)
 
 ---
 
@@ -62,7 +62,7 @@ The application is designed to be a clean, readable, and extensible starting poi
 
 - Python **3.11** or higher
 - `pip` package manager
-- An **Anthropic API key** (or a key for your chosen LLM provider)
+- A **Gemini API key** (free tier available at [aistudio.google.com](https://aistudio.google.com))
 - Git (for cloning the repository)
 
 ---
@@ -141,7 +141,7 @@ Then open `.env` and set your API key:
 
 ```env
 # .env
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 APP_ENV=development
 ```
 
@@ -149,7 +149,7 @@ APP_ENV=development
 
 | Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ Yes | Your Anthropic API key from [console.anthropic.com](https://console.anthropic.com) |
+| `GEMINI_API_KEY` | ✅ Yes | Your Gemini API key from [aistudio.google.com](https://aistudio.google.com/app/apikey) |
 | `APP_ENV` | ✅ Yes | Application environment (`development` or `production`) |
 
 > **Note:** Never commit your `.env` file. It is already listed in `.gitignore`.
@@ -191,7 +191,7 @@ Checks whether the application is running and whether all required environment v
   "status": "ok" | "degraded",
   "app_env": "development",
   "checks": {
-    "ANTHROPIC_API_KEY": "set" | "missing",
+    "GEMINI_API_KEY": "set" | "missing",
     "APP_ENV": "set" | "missing"
   }
 }
@@ -243,7 +243,7 @@ curl -X GET http://localhost:8000/health
   "status": "ok",
   "app_env": "development",
   "checks": {
-    "ANTHROPIC_API_KEY": "set",
+    "GEMINI_API_KEY": "set",
     "APP_ENV": "set"
   }
 }
@@ -384,14 +384,14 @@ For tasks like extraction, classification, and date conversion, the system promp
 - Date conversions always include both the result and the calculation breakdown.
 - Random numbers are always returned as plain integers in the response message.
 
-These conventions make downstream parsing reliable without requiring strict JSON mode. If your use case requires machine-readable JSON output directly, the service layer can be extended to use provider-specific structured output features (e.g., Anthropic's `tool_use` mode or OpenAI's `response_format: { type: "json_object" }`).
+These conventions make downstream parsing reliable without requiring strict JSON mode. If your use case requires machine-readable JSON output directly, the service layer can be extended to use Gemini's built-in structured output feature by setting `response_mime_type="application/json"` and passing a `response_schema` in the generation config.
 
 ---
 
 ## 🔮 Future Improvements
 
 - [ ] **Streaming responses** — Use Server-Sent Events (SSE) for real-time token streaming
-- [ ] **Provider abstraction layer** — Hot-swap between Anthropic, OpenAI, Gemini, and Groq via a config flag
+- [ ] **Provider abstraction layer** — Hot-swap between Gemini, OpenAI, Anthropic, and Groq via a config flag
 - [ ] **Conversation history** — Maintain session context for multi-turn conversations
 - [ ] **Strict JSON mode** — Return all structured tasks as validated JSON objects
 - [ ] **Rate limiting** — Add per-IP rate limiting middleware using `slowapi`
@@ -409,4 +409,4 @@ This project was created for the **Offshorly AI/Full-Stack Developer Internship*
 
 ---
 
-*Built with ❤️ using FastAPI and Claude.*
+*Built with ❤️ using FastAPI and Google Gemini.*
