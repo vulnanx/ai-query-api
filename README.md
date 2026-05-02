@@ -1,4 +1,4 @@
-# 🤖 Offshorly LLM API Playground
+# 🤖 AI-Prompt-Engineering-API
 
 > A full-stack AI application — FastAPI backend + Next.js chat frontend — demonstrating practical LLM capabilities through a clean, extensible REST API and a real-time chat interface. Built for the Offshorly AI/Full-Stack Developer Internship technical assignment.
 
