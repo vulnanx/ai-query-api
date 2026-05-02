@@ -18,7 +18,3 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
-
-# Documentations
-Documentation.md
-step-by-step-guide.md

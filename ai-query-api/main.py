@@ -4,6 +4,7 @@
 from fastapi import FastAPI
 from routes.health import router as health_router
 from routes.query import router as query_router
+from fastapi.middleware.cors import CORSMiddleware
 
 # Create the FastAPI application instance.
 # The title and description appear in the automatic Swagger UI docs.
@@ -11,6 +12,15 @@ app = FastAPI(
     title="AI Query API",
     description="A FastAPI backend that demonstrates LLM integration with Google Gemini.",
     version="1.0.0",
+)
+
+# CORS — allows the frontend at localhost:3000 to call this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # The frontend's URL
+    allow_credentials=True,
+    allow_methods=["*"],   # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],   # Allow all headers
 )
 
 # Register the health router.
