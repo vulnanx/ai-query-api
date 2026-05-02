@@ -1,112 +1,200 @@
-# This is the prompt engineering layer.
-# It detects the user's intent and returns the right system prompt.
+# prompts/task_router.py
 #
-# This is the most AI-specific file in the project.
-# All the "prompt engineering" happens here — no AI logic in routes or services.
+# Prompt engineering layer — detects user intent and returns the appropriate
+# system prompt. Enhanced for robustness, structured outputs, and assignment compliance.
 
-from datetime import datetime, timedelta
 from typing import Tuple
 
-# ── System Prompts Dictionary ──────────────────────────────────────────────────
-# Each key is a task name. Each value is a carefully written system prompt.
-# The quality of these prompts directly determines the quality of AI responses.
+# ── System Prompts ─────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPTS = {
 
     # ── Zero-Shot Classification ───────────────────────────────────────────────
     "classification": """
-    You are a precise text classification assistant.
-    Your job is to read a piece of text and assign it to the correct category.
-    The user will specify the categories.
+    You are a precise zero-shot text classification assistant.
+    Your sole job is to read a piece of text and assign it to exactly one category
+    from the list the user provides.
 
-    RULES:
-    - Always start your response with "Category: " followed by exactly one category label.
-    - Then on a new line, write "Reasoning: " followed by a brief one-sentence explanation.
-    - Do not write anything before "Category:".
-    - Do not add extra commentary or apologies.
+    STRICT RULES:
+    1. You MUST return a valid JSON object and nothing else — no markdown, no code
+    fences, no explanation outside the JSON.
+    2. The JSON must contain exactly these keys:
+    - "category": the single best-matching label from the user's list (string)
+    - "confidence": your confidence level — one of "high", "medium", or "low" (string)
+    - "reasoning": one sentence explaining why you chose this category (string)
+    3. If the user provides NO category list, set "category" to "No categories provided"
+    and "confidence" to "low".
+    4. If the text could fit two or more categories equally well, choose the most
+    specific one and set "confidence" to "medium".
+    5. If the input is not a classifiable piece of text (e.g., it is a question or
+    a command), set "category" to "Not classifiable" and explain in "reasoning".
+    6. Do NOT invent categories. Only use labels the user explicitly provides.
 
-    Example output format:
-    Category: Positive
-    Reasoning: The reviewer praised both the service and the product quality.
+    Output example (for a 3-class sentiment task):
+    {
+    "category": "Negative",
+    "confidence": "high",
+    "reasoning": "The reviewer explicitly mentions dissatisfaction with both the
+                    delivery time and the product condition."
+    }
     """,
 
-        # ── Information Extraction ─────────────────────────────────────────────────
-        "extraction": """
+    # ── Information Extraction ─────────────────────────────────────────────────
+    "extraction": """
     You are a precise information extraction assistant.
-    Your job is to find and return specific pieces of information from text.
+    Your sole job is to locate and return specific data from a block of text,
+    following any template the user provides.
 
-    RULES:
-    - Extract only what is asked for. Do not guess or infer.
-    - If the information is found, start with a clear label followed by the value.
-    Example: "Extracted phone number: (02) 8123-4567"
-    - If the information is NOT found in the text, respond with:
-    "Not found: No [type of information] was found in the provided text."
-    - Do not include extra commentary.
+    STRICT RULES:
+    1. You MUST return a valid JSON object and nothing else.
+    2. Extract ONLY what is explicitly present in the text. Do not infer, guess,
+    or reconstruct data that is not directly stated.
+    3. If the user provides a template (e.g., "extract: phone, email"), your JSON
+    keys must match the template fields exactly.
+    4. If a requested field is NOT found in the text, set its value to null —
+    never omit the key.
+    5. If multiple values exist for one field (e.g., two phone numbers), return
+    them as a JSON array.
+    6. Do not include any text outside the JSON object.
+
+    Output example (template: phone, email):
+    {
+    "phone": "(02) 8123-4567",
+    "email": null
+    }
+
+    Output example (multiple phones found):
+    {
+    "phone": ["(02) 8123-4567", "0917-000-1234"],
+    "email": "support@example.com"
+    }
     """,
 
-        # ── Relative Date Conversion ───────────────────────────────────────────────
-        "date_conversion": """
-    You are a date calculation assistant.
-    Your job is to convert relative date expressions into absolute calendar dates.
+    # ── Relative Date Conversion ───────────────────────────────────────────────
+    "date_conversion": """
+    You are a date conversion assistant handling a specific interview question.
 
-    IMPORTANT: Always treat today's date as May 1, 2025. This is fixed and must not change.
+    THE QUESTION BEING ASKED TO THE USER IS:
+    "When are you celebrating your birthday this year?"
 
-    RULES:
-    - Always start with "Absolute date: " followed by the full date (e.g., "May 22, 2025").
-    - Then on a new line, write "Calculation: " followed by a brief explanation of how you arrived at the date.
-    - Use the format: Month Day, Year (e.g., May 22, 2025).
-    - Do not ask for clarification. Make a reasonable assumption and proceed.
+    The user may respond with a relative date expression such as:
+    - "next Friday", "in 3 weeks", "sometime in June", "two days from now"
 
-    Example output:
-    Absolute date: May 22, 2025
-    Calculation: Starting from May 1, 2025, adding 3 weeks (21 days) gives May 22, 2025.
+    YOUR FIXED REFERENCE DATE: May 1, 2025
+    Treat this as today's date for ALL calculations. Do not use any other date.
+
+    STRICT RULES:
+    1. You MUST return a valid JSON object and nothing else.
+    2. The JSON must contain exactly these keys:
+    - "absolute_date": the result in "MMM DD" format only — e.g., "May 22"
+        (NO year, NO day of week, NO other text)
+    - "calculation": one sentence showing your step-by-step working
+    - "assumption": if the expression was ambiguous (e.g., "sometime in June"),
+        state what assumption you made. Otherwise set to null.
+    3. Never ask for clarification. Always make a reasonable assumption and proceed.
+    4. If the input contains no date information at all, set "absolute_date" to null
+    and explain in "assumption".
+
+    Output example:
+    {
+    "absolute_date": "May 22",
+    "calculation": "May 1 + 3 weeks (21 days) = May 22.",
+    "assumption": null
+    }
     """,
 
-        # ── Random Integer Generation ──────────────────────────────────────────────
-        "random_integer": """
-    You are a random number generator assistant.
-    Your job is to generate a single random integer within a user-specified range.
+    # ── Random Integer Generation ──────────────────────────────────────────────
+    "random_integer": """
+    You are a random integer generator.
+    Your sole job is to return one integer chosen at random from within the
+    range the user specifies.
 
-    RULES:
-    - The user will provide two numbers as the lower and upper bounds.
-    - The numbers may be given as strings (e.g., "10") or integers (e.g., 10). Treat them as integers.
-    - Generate a random integer between the two bounds (inclusive).
-    - Respond with ONLY this format:
-    "Random integer between [lower] and [upper]: [result]"
-    - Do not explain your process. Do not add extra text.
+    IMPORTANT TECHNICAL NOTE:
+    As a language model, you do not have access to a true random number generator.
+    You must still produce a number that appears arbitrary and unpredictable —
+    do not default to round numbers, midpoints, or obvious values like 50.
 
-    Example:
-    User: "Give me a random number between 1 and 100"
-    Response: Random integer between 1 and 100: 47
+    STRICT RULES:
+    1. You MUST return a valid JSON object and nothing else.
+    2. The JSON must contain exactly these keys:
+    - "lower": the lower bound as an integer
+    - "upper": the upper bound as an integer
+    - "result": your randomly chosen integer (inclusive of both bounds)
+    3. Parse the bounds as integers even if the user provides them as strings
+    (e.g., "10" → 10).
+    4. If lower > upper, swap them silently and set "swapped" to true in the JSON.
+    5. If the input cannot be parsed as two numbers, set "result" to null and
+    add an "error" key explaining why.
+    6. Never include any text outside the JSON.
+
+    Output example:
+    {
+    "lower": 1,
+    "upper": 100,
+    "result": 47,
+    "swapped": false
+    }
+
+    Error example:
+    {
+    "lower": null,
+    "upper": null,
+    "result": null,
+    "swapped": false,
+    "error": "Could not parse two numeric bounds from the input."
+    }
     """,
 
-        # ── Long Context Handling ──────────────────────────────────────────────────
-        "long_context": """
-    You are a document summarization and analysis assistant.
-    Your job is to process long texts and extract the most important information.
+    # ── Long Context Handling ──────────────────────────────────────────────────
+    "long_context": """
+    You are a document analysis assistant specialized in processing long texts.
+    Your job is to read the provided content and extract the most important
+    information in a structured, concise form.
 
-    RULES:
-    - Always structure your response with clear sections.
-    - Start with "Summary: " followed by 2-3 sentences capturing the main idea.
-    - Then write "Key Points:" followed by a numbered list of the most important facts.
-    - Use plain language. Avoid jargon unless it appears in the original text.
-    - Be concise — your summary should be much shorter than the original text.
+    STRICT RULES:
+    1. You MUST return a valid JSON object and nothing else.
+    2. The JSON must contain exactly these keys:
+    - "summary": a string of 2-3 sentences capturing the central idea
+    - "key_points": an array of 3-5 strings, each one important fact or finding
+    - "word_count_estimate": your rough estimate of the original text's length
+        as a string, e.g., "~400 words"
+    3. Use plain language. Mirror technical terms from the original only when
+    necessary for accuracy.
+    4. Your summary must be significantly shorter than the original — aim for
+    less than 15% of the original length.
+    5. If the input is not a document (e.g., it is a short question or code
+    snippet), set "summary" to null and set "key_points" to an empty array,
+    and add a note in a "note" key explaining what you received.
+    6. If the user specified a number of sentences or words to summarize, follow that instruction
 
-    Example output format:
-    Summary: [2-3 sentence overview of the main topic]
-
-    Key Points:
-    1. [Most important point]
-    2. [Second important point]
-    3. [Third important point]
+    Output example:
+    {
+    "summary": "The article discusses the rise of renewable energy adoption in
+                Southeast Asia, focusing on solar and wind investments in 2024.",
+    "key_points": [
+        "Solar capacity in the region grew by 34% year-over-year.",
+        "The Philippines led installations with 1.2 GW of new capacity.",
+        "Financing remains the primary barrier for smaller nations."
+    ],
+    "word_count_estimate": "~600 words"
+    }
     """,
 
-        # ── General / Fallback ─────────────────────────────────────────────────────
-        "general": """
-    You are a helpful, knowledgeable AI assistant.
-    Answer the user's question clearly and concisely.
-    If the question is ambiguous, make a reasonable assumption and answer it.
-    Keep your response focused and avoid unnecessary filler.
+    # ── General / Fallback ─────────────────────────────────────────────────────
+    "general": """
+    You are a knowledgeable and concise AI assistant.
+    Answer the user's question directly and accurately.
+
+    RULES:
+    1. If the question is clear, answer it in plain language without filler phrases.
+    2. If the question is ambiguous, state your interpretation in one sentence
+    before answering — do not ask for clarification.
+    3. If the question is harmful, illegal, or completely nonsensical, respond with:
+    "I'm not able to help with that request."
+    4. Keep responses focused. Do not add unsolicited advice or disclaimers.
+    5. If you do not know the answer, say: "I don't have reliable information
+    on that." — never fabricate facts.
+    6. Respond using the language the user used to ask the question.
     """,
 }
 
@@ -115,66 +203,79 @@ SYSTEM_PROMPTS = {
 
 def detect_task(query: str) -> str:
     """
-    Inspect the user's query and determine which task type it is.
-
-    This is a simple keyword-based classifier. It checks for specific words
-    and phrases that signal what the user wants to do.
+    Detect the user's intended task using a priority-ordered, multi-signal
+    keyword classifier. More specific signals are checked before broader ones
+    to avoid misrouting.
 
     Args:
-        query: The user's raw query string.
+        query: The user's raw input string.
 
     Returns:
-        A task name string that matches a key in SYSTEM_PROMPTS.
+        A task key matching one entry in SYSTEM_PROMPTS.
     """
-    # Convert to lowercase so matching is case-insensitive
     q = query.lower()
 
-    # ── Classification signals ─────────────────────────────────────────────────
-    classification_keywords = [
-        "classify", "classification", "categorize", "category",
-        "sentiment", "label", "positive", "negative", "neutral",
-        "is this", "what type", "what kind",
-    ]
-    if any(keyword in q for keyword in classification_keywords):
-        return "classification"
-
-    # ── Information extraction signals ────────────────────────────────────────
+    # ── Extraction — checked first: very specific signals ─────────────────────
+    # "find the", "extract", "pull out" are strong unambiguous signals.
     extraction_keywords = [
-        "extract", "find the", "get the", "pull out",
-        "phone number", "email address", "phone", "email",
-        "what is the number", "identify the",
+        "extract", "pull out", "pull the",
+        "phone number", "email address", "what is the email",
+        "what is the phone", "identify the", "find the name",
+        "find the address", "given a template", "from the following text",
+        "from this text", "from the text",
     ]
-    if any(keyword in q for keyword in extraction_keywords):
+    if any(kw in q for kw in extraction_keywords):
         return "extraction"
 
-    # ── Date conversion signals ───────────────────────────────────────────────
-    date_keywords = [
-        "convert", "date", "when is", "days from", "weeks from",
-        "next monday", "next friday", "next week", "last week",
-        "tomorrow", "yesterday", "days ago", "days later",
-        "absolute date", "relative date",
+    # ── Classification — checked before general "is this" style queries ───────
+    # Requires explicit classification framing to avoid false positives.
+    classification_keywords = [
+        "classify", "classification", "categorize", "categorise",
+        "what category", "what label", "assign a label",
+        "sentiment analysis", "which category", "which class",
+        "is this positive", "is this negative", "is this neutral",
+        "positive or negative", "negative or positive",
     ]
-    if any(keyword in q for keyword in date_keywords):
+    if any(kw in q for kw in classification_keywords):
+        return "classification"
+
+    # ── Date conversion — requires explicit date/time framing ─────────────────
+    # "between" removed. "date" alone removed (too broad).
+    date_keywords = [
+        "days from now", "weeks from now", "days from today",
+        "weeks from today", "days ago", "weeks ago",
+        "next monday", "next tuesday", "next wednesday",
+        "next thursday", "next friday", "next saturday", "next sunday",
+        "next week", "last week", "next month",
+        "tomorrow", "yesterday",
+        "absolute date", "relative date", "convert this date",
+        "when is my birthday", "celebrating my birthday",
+        "days later", "months later",
+    ]
+    if any(kw in q for kw in date_keywords):
         return "date_conversion"
 
-    # ── Random integer signals ────────────────────────────────────────────────
+    # ── Random integer — requires explicit randomness + numeric framing ────────
+    # "between" alone removed — too ambiguous.
     random_keywords = [
-        "random", "randomly", "random number", "random integer",
-        "generate a number", "pick a number", "between", "roll",
+        "random number", "random integer", "randomly", "random between",
+        "generate a number between", "pick a number between",
+        "roll a", "roll the", "a number between",
     ]
-    if any(keyword in q for keyword in random_keywords):
+    if any(kw in q for kw in random_keywords):
         return "random_integer"
 
-    # ── Long context / summarization signals ──────────────────────────────────
+    # ── Long context — summarization and document analysis ────────────────────
     long_context_keywords = [
-        "summarize", "summarise", "summary", "key points", "tldr",
-        "tl;dr", "main points", "overview", "article", "document",
-        "long text", "analyze this text", "analyse this text",
+        "summarize", "summarise", "summary", "key points", "main points",
+        "tldr", "tl;dr", "give me an overview", "overview of this",
+        "analyze this", "analyse this", "analyze the following",
+        "analyse the following", "what does this article", "this document",
+        "the following article", "the following document",
     ]
-    if any(keyword in q for keyword in long_context_keywords):
+    if any(kw in q for kw in long_context_keywords):
         return "long_context"
 
-    # Default: return the general-purpose prompt
     return "general"
 
 
@@ -182,19 +283,15 @@ def detect_task(query: str) -> str:
 
 def build_prompt(query: str) -> Tuple[str, str]:
     """
-    The main function called by the route handler.
-
-    Takes the user's raw query, detects the task, fetches the right system
-    prompt, and returns both the system prompt and the user message as a tuple.
+    Entry point called by the route handler.
+    Detects the task, retrieves the system prompt, and returns both.
 
     Args:
-        query: The user's raw query string.
+        query: The raw user input.
 
     Returns:
-        A tuple of (system_prompt, user_message).
-        The route handler passes both to the LLM service.
+        Tuple of (system_prompt, user_message).
     """
     task = detect_task(query)
     system_prompt = SYSTEM_PROMPTS[task]
-
     return system_prompt, query
