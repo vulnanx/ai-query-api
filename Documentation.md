@@ -1,5 +1,5 @@
 # 📚 Project Documentation
-## Offshorly LLM API Playground — Technical Assignment
+## AI QUERY API — Technical Assignment
 
 > **Assignment:** AI/Full-Stack Developer Internship — Offshorly
 > **Stack:** Python · FastAPI · Anthropic Claude · Pydantic · Uvicorn
@@ -21,7 +21,7 @@
 
 ## 1.1 Purpose
 
-The **Offshorly LLM API Playground** is a backend web service designed to demonstrate practical Artificial Intelligence integration within a clean, production-style REST API. It exposes two HTTP endpoints:
+The **AI QUERY API** is a backend web service designed to demonstrate practical Artificial Intelligence integration within a clean, production-style REST API. It exposes two HTTP endpoints:
 
 - **`GET /health`** — A diagnostic endpoint that confirms the application is running and that all required environment configuration is in place.
 - **`POST /query`** — A general-purpose AI endpoint that accepts a natural language query from the user, processes it through a prompt engineering layer, sends it to a Large Language Model (LLM) API, and returns the model's response as a structured JSON object.
@@ -227,8 +227,8 @@ Follow these steps to get the project running on your local machine from scratch
 ### Step 1 — Clone the repository
 
 ```bash
-git clone https://github.com/your-username/offshorly-llm-playground.git
-cd offshorly-llm-playground
+git clone https://github.com/your-username/ai-query-api.git
+cd ai-query-api
 ```
 
 ### Step 2 — Ensure Python 3.11+ is installed
@@ -446,7 +446,7 @@ Add an example to `README.md` under the **Prompt Task Examples** section so othe
 ## 4.1 Full Structure
 
 ```
-offshorly-llm-playground/
+ai-query-api/
 │
 ├── main.py
 ├── config.py
@@ -499,7 +499,7 @@ from fastapi import FastAPI
 from routes.health import router as health_router
 from routes.query import router as query_router
 
-app = FastAPI(title="Offshorly LLM Playground", version="1.0.0")
+app = FastAPI(title="AI QUERY API", version="1.0.0")
 app.include_router(health_router)
 app.include_router(query_router)
 ```
@@ -773,4 +773,4 @@ Thumbs.db
 
 ---
 
-*End of Documentation — Offshorly LLM API Playground*
+*End of Documentation — AI Query API*

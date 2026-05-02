@@ -1,4 +1,4 @@
-# 🤖 Offshorly LLM API Playground
+# 🤖 AI QUERY API
 
 > A FastAPI backend that demonstrates practical LLM capabilities through a clean, extensible REST API — built for the Offshorly AI/Full-Stack Developer Internship technical assignment.
 
@@ -24,7 +24,7 @@
 
 ## 📖 Description
 
-**Offshorly LLM API Playground** is a lightweight FastAPI application that exposes two REST endpoints — `GET /health` and `POST /query` — to demonstrate real-world LLM integration patterns. It routes natural language user queries through a prompt engineering layer before sending them to an LLM provider (Anthropic Claude by default, with easy swapping to Gemini, Groq, or OpenAI).
+**AI Query API** is a lightweight FastAPI application that exposes two REST endpoints — `GET /health` and `POST /query` — to demonstrate real-world LLM integration patterns. It routes natural language user queries through a prompt engineering layer before sending them to an LLM provider (Anthropic Claude by default, with easy swapping to Gemini, Groq, or OpenAI).
 
 The application is designed to be a clean, readable, and extensible starting point for AI-powered backend development, showcasing several foundational LLM techniques within a single unified API.
 
@@ -70,7 +70,7 @@ The application is designed to be a clean, readable, and extensible starting poi
 ## 🗂️ Project Structure
 
 ```
-offshorly-llm-playground/
+ai-query-api/
 ├── main.py                  # FastAPI app entry point
 ├── config.py                # Environment variable loading & validation
 ├── requirements.txt         # Python dependencies
@@ -104,8 +104,8 @@ offshorly-llm-playground/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/offshorly-llm-playground.git
-cd offshorly-llm-playground
+git clone https://github.com/your-username/ai-query-api.git
+cd ai-query-api
 ```
 
 ### 2. Create a Virtual Environment
