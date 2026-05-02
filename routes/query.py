@@ -1,38 +1,41 @@
 # Defines the POST /query endpoint.
-# Right now it returns a placeholder. We will connect Gemini in Milestone 4.
 
 from fastapi import APIRouter, HTTPException
 from schemas.query import QueryRequest, QueryResponse
 from services.llm_service import call_llm
+from prompts.task_router import build_prompt
 
 router = APIRouter()
-
-DEFAULT_SYSTEM_PROMPT = """
-You are a helpful AI assistant integrated into a FastAPI backend application.
-Answer the user's questions clearly, concisely, and accurately.
-If the user asks you to perform a specific task like classification,
-information extraction, or date conversion, do it precisely.
-"""
 
 @router.post(
     "/query",
     response_model=QueryResponse,
     summary="Send a Query",
-    description="Send a natural language query and receive an AI-generated response.",
+    description="Send a natural language query. The system automatically detects the task type "
+        "(classification, extraction, date conversion, random integer, summarization, or general) "
+        "and applies the appropriate prompt before calling Google Gemini.",
 )
 def handle_query(request: QueryRequest):
     """
-    Receives the user's query, sends it to Gemini, and returns the response.
+    Full request flow:
+    1. Pydantic validates the request body (automatic).
+    2. build_prompt() detects the task and selects the right system prompt.
+    3. call_llm() sends the system prompt + user message to Gemini.
+    4. The response is wrapped in QueryResponse and returned as JSON.
     """
 
     try:
-        # Call Gemini with the default system prompt and the user's query
+        # Get the right system prompt for this query
+        system_prompt, user_message = build_prompt(request.query)
+
+        # Send to Gemini
         ai_response = call_llm(
-            system_prompt=DEFAULT_SYSTEM_PROMPT,
-            user_message=request.query,
+            system_prompt=system_prompt,
+            user_message=user_message,
         )
 
-        return QueryResponse(message=ai_response)
+        # Wrap in Pydantic model before returning
+        return QueryResponse(answer=ai_response)
 
     except Exception as e:
         # If anything goes wrong with the Gemini call, return a 500 error
