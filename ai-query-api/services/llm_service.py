@@ -8,7 +8,7 @@ from config import settings
 
 # ── Model Configuration ────────────────────────────────────────────────────────
 # gemini-2.0-flash is fast, capable, and cost-effective.
-MODEL = "gemini-2.5-flash-lite"
+MODEL = "gemini-2.5-flash"
 
 # ── Client Initialization ──────────────────────────────────────────────────────
 # We create the Gemini client once when this module loads.

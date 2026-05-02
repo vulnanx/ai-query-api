@@ -4,6 +4,7 @@
 # This is the most AI-specific file in the project.
 # All the "prompt engineering" happens here — no AI logic in routes or services.
 
+from datetime import datetime, timedelta
 from typing import Tuple
 
 # ── System Prompts Dictionary ──────────────────────────────────────────────────
