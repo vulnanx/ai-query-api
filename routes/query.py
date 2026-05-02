@@ -35,7 +35,7 @@ def handle_query(request: QueryRequest):
         )
 
         # Wrap in Pydantic model before returning
-        return QueryResponse(answer=ai_response)
+        return QueryResponse(message=ai_response)
 
     except Exception as e:
         # If anything goes wrong with the Gemini call, return a 500 error
