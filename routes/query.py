@@ -3,9 +3,16 @@
 
 from fastapi import APIRouter, HTTPException
 from schemas.query import QueryRequest, QueryResponse
+from services.llm_service import call_llm
 
 router = APIRouter()
 
+DEFAULT_SYSTEM_PROMPT = """
+You are a helpful AI assistant integrated into a FastAPI backend application.
+Answer the user's questions clearly, concisely, and accurately.
+If the user asks you to perform a specific task like classification,
+information extraction, or date conversion, do it precisely.
+"""
 
 @router.post(
     "/query",
@@ -15,20 +22,21 @@ router = APIRouter()
 )
 def handle_query(request: QueryRequest):
     """
-    Steps this endpoint will eventually do (fully implemented by Milestone 5):
-    1. Receive and validate the user's query (done — Pydantic handles this)
-    2. Detect the task type (e.g., classification, extraction)
-    3. Build the right system prompt
-    4. Send the prompt + query to Gemini
-    5. Return the response as JSON
-
-    For now, we return a placeholder so we can test the HTTP layer.
+    Receives the user's query, sends it to Gemini, and returns the response.
     """
 
-    # PLACEHOLDER — will be replaced with actual AI logic in Milestone 4
-    placeholder_response = (
-        f"[Placeholder] You sent: '{request.query}'. "
-        "AI integration coming in Milestone 4."
-    )
+    try:
+        # Call Gemini with the default system prompt and the user's query
+        ai_response = call_llm(
+            system_prompt=DEFAULT_SYSTEM_PROMPT,
+            user_message=request.query,
+        )
 
-    return QueryResponse(message=placeholder_response)
+        return QueryResponse(message=ai_response)
+
+    except Exception as e:
+        # If anything goes wrong with the Gemini call, return a 500 error
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI service error: {str(e)}",
+        )
